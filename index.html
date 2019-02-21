@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Interactive Map</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+	<style>
+		html, body {
+		margin: 0;
+		}
+		#map {
+			height: 400px;
+			width: 100%;
+		}
+	</style>
+</head>
+<body>
+
+    <input id="mapLatitude" type="hidden" value="51.571527">
+    <input id="mapLongitude" type="hidden" value="-0.149113">
+    <input id="amenityType" type="hidden" value="school">
+    <input id="markerIcon" type="hidden" value="assets/img/mapMarkerIcos-schools.png">
+    
+    <div id="map"></div>
+
+    <button class="mapFilter" data-filter="school">schools</button><br>
+    <button class="mapFilter" data-filter="restaurant">restaurants</button><br>
+    <button class="mapFilter" data-filter="subway_station">stations</button><br>
+    <button class="mapFilter" data-filter="convenience_store">shops</button><br>
+
+    <script type="text/javascript" src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBNPO77AnQOdXcUhisHtfu_RP0Ha3bZKn8&libraries=places"></script>
+    <script src="assets/js/main.js"></script>
+    
+	
+	<script type="text/javascript">
+		var map;
+
+// Filters
+var filterArray = [
+    {filter: 'school', icon: 'assets/img/mapMarkerIcos-schools.png', markersArray: 'schoolMarkers'},
+    {filter: 'restaurant', icon: 'assets/img/mapMarkerIcos-restaurants.png', markersArray: 'restaurantMarkers'},
+    {filter: 'subway_station', icon: 'assets/img/mapMarkerIcos-stations.png', markersArray: 'stationMarkers'},
+    {filter: 'convenience_store', icon: 'assets/img/mapMarkerIcos-shops.png', markersArray: 'shopMarkers'}
+];
+var schoolMarkers = [];
+var restaurantMarkers = [];
+var stationMarkers = [];
+var shopMarkers = [];
+
+//console.log(filterArray);
+
+// Map center coordinates
+var coords = [
+    parseFloat(document.getElementById('mapLatitude').value),
+    parseFloat(document.getElementById('mapLongitude').value)
+];
+var area = new google.maps.LatLng(coords[0], coords[1]);
+var filter = document.getElementById('amenityType').value;
+
+// Add marker function
+function addMarker(props) {
+    var marker = new google.maps.Marker({
+        position: props.geometry.location,
+        title: props.name,
+        address: props.vicinity,
+        animation: google.maps.Animation.DROP,
+        map:map
+    });
+    // Set icon if it exists
+    if(props.icon) {
+        var icon = document.getElementById('markerIcon').value;
+        marker.setIcon(icon);
+    }
+    // Create info window when clicked
+    var contentString = '<h3>' + props.name +'</h3><span>' + props.vicinity + '</span>';
+    var infoWindow = new google.maps.InfoWindow({
+        content: contentString
+    });
+    marker.addListener('click', function() {
+        infoWindow.open(map, marker);
+    });
+    google.maps.event.addListener(map, 'click', function() {
+        infoWindow.close();
+    });
+}
+
+// When the window has finished loading create our google map below
+google.maps.event.addDomListener(window, 'load', init);
+
+function init() {
+	var markersArray = null;
+    // Basic options for a simple Google Map
+    // For more options see: https://developers.google.com/maps/documentation/javascript/reference#MapOptions
+    var mapOptions = {
+        // How zoomed in you want the map to start at (always required)
+        zoom: 14,
+
+        // The latitude and longitude to center the map (always required)
+        center: area,
+
+
+        // How you would like to style the map. 
+        // This is where you would paste any style found on Snazzy Maps.
+        styles: [{"featureType":"water","elementType":"geometry","stylers":[{"color":"#e9e9e9"},{"lightness":17}]},{"featureType":"landscape","elementType":"geometry","stylers":[{"color":"#f5f5f5"},{"lightness":20}]},{"featureType":"road.highway","elementType":"geometry.fill","stylers":[{"color":"#ffffff"},{"lightness":17}]},{"featureType":"road.highway","elementType":"geometry.stroke","stylers":[{"color":"#ffffff"},{"lightness":29},{"weight":0.2}]},{"featureType":"road.arterial","elementType":"geometry","stylers":[{"color":"#ffffff"},{"lightness":18}]},{"featureType":"road.local","elementType":"geometry","stylers":[{"color":"#ffffff"},{"lightness":16}]},{"featureType":"poi","elementType":"geometry","stylers":[{"color":"#f5f5f5"},{"lightness":21}]},{"featureType":"poi.park","elementType":"geometry","stylers":[{"color":"#dedede"},{"lightness":21}]},{"elementType":"labels.text.stroke","stylers":[{"visibility":"on"},{"color":"#ffffff"},{"lightness":16}]},{"elementType":"labels.text.fill","stylers":[{"saturation":36},{"color":"#333333"},{"lightness":40}]},{"elementType":"labels.icon","stylers":[{"visibility":"on"},{"color":"#eeeeee"},{"lightness":50}]},{"featureType":"transit","elementType":"geometry","stylers":[{"color":"#f2f2f2"},{"lightness":19}]},{"featureType":"administrative","elementType":"geometry.fill","stylers":[{"color":"#fefefe"},{"lightness":20}]},{"featureType":"administrative","elementType":"geometry.stroke","stylers":[{"color":"#fefefe"},{"lightness":17},{"weight":1.2}]}]
+    };
+
+    // Get the HTML DOM element that will contain your map 
+    // We are using a div with id="map" seen below in the <body>
+    var mapElement = document.getElementById('map');
+
+    // Create the Google Map using our element and options defined above
+    map = new google.maps.Map(mapElement, mapOptions);
+
+    // Request nearby amenities for every Filter, then store this in an array each
+    for (i = 0; i < filterArray.length; i++) {
+        var filterObj = filterArray[i];
+        var filter = filterObj.filter;
+        console.log(filter);
+        markersArray = filterObj.markersArray;
+        console.log(markersArray);
+        var request = {
+            location: area,
+            radius: '2000',
+            fields: ['name', 'geometry'],
+            type: [filter]
+        };
+        service = new google.maps.places.PlacesService(map);
+        service.nearbySearch(request, callback, markersArray);
+		//var markersArray = this.markersArray;
+		<!-- service.nearbySearch(request, ((markersArray) =>  -->
+		  <!-- (result, status) => { -->
+			 <!-- // makersArray is available here -->
+		  <!-- } -->
+		<!-- )(makersArray)); -->
+        //
+    }
+
+    // Add results to Array
+    function callback(results, status) {
+        if (status == google.maps.places.PlacesServiceStatus.OK) {
+		var args = arguments[2];
+		var schoolList = arguments[2].j.caller.arguments[2].results;
+            //console.log(results);
+            console.log('results found');
+            //markersArray.push(results);
+            
+            //for (var i = 0; i < results.length; i++) {
+                //console.log(results[i]);
+                //addMarker(results[i]);
+            //}
+            
+        }
+    }
+
+}
+
+
+	</script>
+</body>
+</html>
